@@ -1,6 +1,12 @@
 ---
 output:
   html_document: default
+knit: (function(input, ...) {
+    rmarkdown::render(
+      input,
+      output_dir = "./outputs"
+    )
+  })
 ---
 
 ```{r setup, include=FALSE}
@@ -11,7 +17,8 @@ library(ggplot2)
 library(maps)
 library(dplyr)
 library(countrycode)
-theme_set(theme_bw())
+library(ggplot2)
+library(ggthemes)
 ```
 
 
@@ -21,32 +28,28 @@ world_pop <- read.csv("./pop_data.csv")
 
 world_map_data$iso3 <- countrycode(world_map_data$region, "country.name", "iso3c")
 
-european_union <- c("Austria","Belgium","Bulgaria","Croatia","Cyprus",
-                    "Czech Rep.","Denmark","Estonia","Finland","France",
-                    "Germany","Greece","Hungary","Ireland","Italy","Latvia",
-                    "Lithuania","Luxembourg","Malta","Netherlands","Poland",
-                    "Portugal","Romania","Slovakia","Slovenia","Spain",
-                    "Sweden","United Kingdom", "Turkey", "Bosnia and Herzegovina",
-                    "Montenegro", "Albania", "Serbia", "Macedonia", "Switzerland",
-                    "Belarus", "Ukraine", "Moldova")
+merged_df <- left_join(world_map_data, world_pop, by = "iso3")
 
-european_union <- countrycode(european_union, "country.name", "iso3c")
+merged_df <- filter(merged_df, (long < 35) & (long > -16))
+merged_df <- filter(merged_df, (lat < 66) & (lat > 35))
+merged_df <- filter(merged_df, ! (iso3 %in% c("MAR", "DZA", "TUN")) )
 
-world_map_data <- filter(world_map_data, iso3 %in% european_union)
-world_pop <- filter(world_pop, iso3 %in% european_union)
+merged_df <- merged_df %>% arrange(desc(pop_2022))
 
-merged_df <- inner_join(world_map_data, world_pop, by = "iso3")
+df <- head(distinct(merged_df[, c("Country", "pop_2022")], Country, pop_2022 ), n=10) 
+df <- df %>% 
+  rename(Population = pop_2022)
+df <- df %>%
+  mutate(across(Population, ~ format(., big.mark = ",", scientific = F)))
 
+df
 
-ggplot() + 
-  geom_polygon( data=world_map_data, aes(x=long, y=lat, group=group),
-                color="black", fill="lightgray") + 
+ggplot() +
   geom_polygon( data=merged_df, 
           aes(x=long, y=lat, group=group, fill = pop_2022), 
           color="white", linewidth = 0.2) + 
   scale_fill_continuous(name="Population(millions)", 
-            low = "lightgreen", high = "darkgreen", 
-            breaks=c(5,10,15,20,25,30,35), na.value = "grey50")
-
+            low = "gray80", high = "gray30", 
+            breaks=c(5,10,15,20,25,30,35), na.value = "white") +theme_map()
 
 ```

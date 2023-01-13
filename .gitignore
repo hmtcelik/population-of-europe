@@ -1,0 +1,14 @@
+# outputs
+population_of_europe.*
+
+.Rproj.user
+.Rhistory
+.RData
+.DS_Store
+inst/doc
+doc
+Meta
+docs
+reference
+
+/.luarc.json
