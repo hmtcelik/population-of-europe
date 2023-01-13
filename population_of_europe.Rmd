@@ -24,7 +24,7 @@ library(ggthemes)
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 world_map_data <- map_data("world")
-world_pop <- read.csv("./pop_data.csv")
+world_pop <- read.csv("./data/pop_data.csv")
 
 world_map_data$iso3 <- countrycode(world_map_data$region, "country.name", "iso3c")
 
