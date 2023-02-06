@@ -12,44 +12,45 @@ knit: (function(input, ...) {
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-
-library(ggplot2)  
-library(maps)
-library(dplyr)
-library(countrycode)
 library(ggplot2)
+library(sf)
+library(rnaturalearth)
+library(countrycode)
+library(dplyr)
 library(ggthemes)
+
+sf_use_s2(FALSE)
 ```
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-world_map_data <- map_data("world")
+worldmap <- ne_countries(scale = 'medium', type = 'map_units',returnclass = 'sf')
 world_pop <- read.csv("./data/pop_data.csv")
 
-world_map_data$iso3 <- countrycode(world_map_data$region, "country.name", "iso3c")
+uk_df <- filter(worldmap, (name %in% c('England', 'Scotland', 'Wales')))
+uk_df$name = 'United Kingdom'
 
-merged_df <- left_join(world_map_data, world_pop, by = "iso3")
+worldmap <- filter(worldmap, ! (name %in% c('England', 'Scotland', 'Wales')))
+worldmap <- rbind(worldmap, uk_df)
 
-merged_df <- filter(merged_df, (long < 35) & (long > -16))
-merged_df <- filter(merged_df, (lat < 66) & (lat > 35))
-merged_df <- filter(merged_df, ! (iso3 %in% c("MAR", "DZA", "TUN")) )
+worldmap$iso3 <- countrycode(worldmap$name, "country.name", "iso3c")
 
-merged_df <- merged_df %>% arrange(desc(pop_2022))
+merged_df <- left_join(worldmap, world_pop, by = "iso3")
+europe_cropped <- st_crop(merged_df, xmin = -24, xmax = 37,
+                                    ymin = 34, ymax = 68)
 
-df <- head(distinct(merged_df[, c("Country", "pop_2022")], Country, pop_2022 ), n=10) 
-df <- df %>% 
-  rename(Population = pop_2022)
-df <- df %>%
-  mutate(across(Population, ~ format(., big.mark = ",", scientific = F)))
+non_europe <- filter(europe_cropped, (iso3 %in% c("MAR", "DZA", "TUN", "SYR", "LBN", "ISR", "PSE")) )
+europe_cropped <- filter(europe_cropped, ! (iso3 %in% non_europe$iso3))
 
-df
+non_europe$pop_2022 = NA
+europe_cropped <- rbind(europe_cropped, non_europe)
 
-ggplot() +
-  geom_polygon( data=merged_df, 
-          aes(x=long, y=lat, group=group, fill = pop_2022), 
-          color="white", linewidth = 0.2) + 
+
+ggplot(data=europe_cropped) +
+  geom_sf(aes(fill=pop_2022)) + 
   scale_fill_continuous(name="Population(millions)", 
-            low = "gray80", high = "gray30", 
-            breaks=c(5,10,15,20,25,30,35), na.value = "white") +theme_map()
-
+            low = "gray90", high = "gray15", 
+            breaks=c(5,10,15,20,25,30,35), na.value = "white") +
+  theme_map()+
+  scale_fill_gradient(low='gray90', high='gray15', na.value = "white", space='Lab')
 ```
