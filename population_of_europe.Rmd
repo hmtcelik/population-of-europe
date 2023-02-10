@@ -18,10 +18,18 @@ library(rnaturalearth)
 library(countrycode)
 library(dplyr)
 library(ggthemes)
+library(plyr)
+library(scales)
+library(knitr)
+library(reactable)
 
 sf_use_s2(FALSE)
 ```
 
+
+# Europe Population
+
+### Population map:
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 worldmap <- ne_countries(scale = 'medium', type = 'map_units',returnclass = 'sf')
@@ -36,8 +44,7 @@ worldmap <- rbind(worldmap, uk_df)
 worldmap$iso3 <- countrycode(worldmap$name, "country.name", "iso3c")
 
 merged_df <- left_join(worldmap, world_pop, by = "iso3")
-europe_cropped <- st_crop(merged_df, xmin = -24, xmax = 37,
-                                    ymin = 34, ymax = 68)
+europe_cropped <- st_crop(merged_df, xmin = -24, xmax = 37, ymin = 34, ymax = 68)
 
 non_europe <- filter(europe_cropped, (iso3 %in% c("MAR", "DZA", "TUN", "SYR", "LBN", "ISR", "PSE")) )
 europe_cropped <- filter(europe_cropped, ! (iso3 %in% non_europe$iso3))
@@ -45,12 +52,49 @@ europe_cropped <- filter(europe_cropped, ! (iso3 %in% non_europe$iso3))
 non_europe$pop_2022 = NA
 europe_cropped <- rbind(europe_cropped, non_europe)
 
+values <- filter(europe_cropped, ! (is.na(pop_2022)))
+max_value = max(values$pop_2022)
 
-ggplot(data=europe_cropped) +
+max_value_label = max_value 
+mid_value = max_value / 2
+min_value = 0
+
+ggplot(data=europe_cropped, ) +
   geom_sf(aes(fill=pop_2022)) + 
-  scale_fill_continuous(name="Population(millions)", 
-            low = "gray90", high = "gray15", 
-            breaks=c(5,10,15,20,25,30,35), na.value = "white") +
-  theme_map()+
-  scale_fill_gradient(low='gray90', high='gray15', na.value = "white", space='Lab')
+  scale_fill_gradientn(
+                      colours=c("gray90", "gray15"),
+                      na.value = "white",
+                      guide=guide_colorbar(
+                        barwidth=0.5,
+                        barheight=10,
+                        title='values',
+                        title.position='top',
+                        nbin=100
+                      )) +
+  theme_map() +
+  theme(legend.position='right') +   
+  theme(legend.justification='center')
+
 ```
+
+
+### Table:
+
+```{r echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
+df <- europe_cropped
+df <- df %>% arrange(desc(pop_2022))
+df <- distinct(as.data.frame(df)[,c("name","pop_2022")])
+
+# df[,c("pop_2022")] <- comma(df[,c("pop_2022")])
+
+df <- df %>%
+ filter(!is.null(pop_2022)) %>%
+ filter(!is.na(pop_2022))
+
+
+reactable(df,
+          highlight=TRUE,
+          defaultColDef = colDef(align = "left"),
+  )
+```
+
